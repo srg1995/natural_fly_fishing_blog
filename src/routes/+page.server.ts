@@ -1,5 +1,5 @@
 import { error } from '@sveltejs/kit';
-import type { Entry } from '#lib/entries.ts';
+import { isEntryType, type Entry } from '#lib/entries.ts';
 import { signImagePaths } from '#lib/server/images.ts';
 
 type ListedEntry = Pick<
@@ -7,15 +7,22 @@ type ListedEntry = Pick<
 	'id' | 'slug' | 'title' | 'type' | 'visibility' | 'excerpt' | 'published_at' | 'created_at'
 > & { entry_images: { path: string }[] };
 
-export const load = async ({ locals }) => {
+export const load = async ({ locals, url }) => {
+	// ?tipo=<entry type>; anything unknown just shows everything.
+	const tipo = url.searchParams.get('tipo');
+	const type = isEntryType(tipo) ? tipo : null;
+
 	// Drafts live in /admin; the home page only lists published entries, even for superadmins.
 	// RLS narrows it further: anonymous visitors only get the public ones.
-	const { data: entries, error: err } = await locals.supabase
+	let query = locals.supabase
 		.from('entries')
 		.select(
 			'id, slug, title, type, visibility, excerpt, published_at, created_at, entry_images(path)'
 		)
-		.eq('status', 'published')
+		.eq('status', 'published');
+	if (type) query = query.eq('type', type);
+
+	const { data: entries, error: err } = await query
 		.order('published_at', { ascending: false })
 		// Only the cover (lowest position) of each entry
 		.order('position', { referencedTable: 'entry_images' })
@@ -30,6 +37,7 @@ export const load = async ({ locals }) => {
 	);
 
 	return {
+		type,
 		entries: entries.map(({ entry_images, ...entry }) => ({
 			...entry,
 			coverUrl: entry_images[0] ? (urls[entry_images[0].path] ?? null) : null

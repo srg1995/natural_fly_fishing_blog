@@ -1,11 +1,20 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
-	import { ENTRY_TYPES, ENTRY_VISIBILITIES } from '#lib/entries.ts';
+	import { ENTRY_TYPES, ENTRY_TYPE_KEYS, ENTRY_VISIBILITIES } from '#lib/entries.ts';
 	import type { PageProps } from './$types';
 
 	let { data }: PageProps = $props();
 
 	const dateFormat = new Intl.DateTimeFormat('es-ES', { dateStyle: 'long' });
+
+	const filters = [
+		{ key: null, label: 'Todas', href: resolve('/') },
+		...ENTRY_TYPE_KEYS.map((key) => ({
+			key,
+			label: ENTRY_TYPES[key].label,
+			href: resolve(`/?tipo=${key}`)
+		}))
+	];
 </script>
 
 <svelte:head>
@@ -24,8 +33,28 @@
 		</p>
 	{/if}
 
+	<nav aria-label="Filtrar por tipo" class="mt-8 flex flex-wrap gap-2">
+		{#each filters as filter (filter.key)}
+			<a
+				href={filter.href}
+				aria-current={data.type === filter.key ? 'page' : undefined}
+				data-sveltekit-reset="false"
+				class={[
+					'rounded-full border px-3 py-1 text-sm font-medium',
+					data.type === filter.key
+						? 'border-stone-900 bg-stone-900 text-white'
+						: 'border-stone-300 text-stone-700 hover:border-stone-500'
+				]}
+			>
+				{filter.label}
+			</a>
+		{/each}
+	</nav>
+
 	{#if data.entries.length === 0}
-		<p class="mt-8 text-stone-500">Todavía no hay entradas.</p>
+		<p class="mt-8 text-stone-500">
+			{data.type ? 'No hay entradas de este tipo.' : 'Todavía no hay entradas.'}
+		</p>
 	{:else}
 		<ul class="mt-10 space-y-10">
 			{#each data.entries as entry (entry.id)}
