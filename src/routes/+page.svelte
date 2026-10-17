@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
+	import { ENTRY_TYPES, ENTRY_VISIBILITIES } from '#lib/entries.ts';
 	import type { PageProps } from './$types';
 
 	let { data }: PageProps = $props();
@@ -14,6 +15,15 @@
 <main class="mx-auto max-w-3xl px-4 py-10 sm:py-16">
 	<h1 class="text-4xl font-bold tracking-tight text-stone-900">Entradas</h1>
 
+	{#if !data.user}
+		<p class="mt-3 text-stone-500">
+			Algunas entradas son privadas. <a
+				href={resolve('/login')}
+				class="font-medium text-stone-800 underline underline-offset-4">Entra</a
+			> para verlas todas.
+		</p>
+	{/if}
+
 	{#if data.entries.length === 0}
 		<p class="mt-8 text-stone-500">Todavía no hay entradas.</p>
 	{:else}
@@ -21,20 +31,23 @@
 			{#each data.entries as entry (entry.id)}
 				<li>
 					<a href={resolve('/entries/[slug]', { slug: entry.slug })} class="group block">
-						{#if entry.cover_image_url}
+						{#if entry.coverUrl}
 							<img
-								src={entry.cover_image_url}
+								src={entry.coverUrl}
 								alt=""
-								class="mb-4 aspect-[16/9] w-full rounded-xl object-cover"
 								loading="lazy"
+								class="mb-4 aspect-[16/9] w-full rounded-xl object-cover"
 							/>
 						{/if}
 						<p class="text-sm text-stone-500">
 							<time datetime={entry.published_at ?? entry.created_at}>
 								{dateFormat.format(new Date(entry.published_at ?? entry.created_at))}
 							</time>
-							{#if entry.location}
-								<span aria-hidden="true">·</span> {entry.location}
+							<span aria-hidden="true">·</span>
+							{ENTRY_TYPES[entry.type].label}
+							{#if entry.visibility === 'private'}
+								<span aria-hidden="true">·</span>
+								{ENTRY_VISIBILITIES.private}
 							{/if}
 						</p>
 						<h2

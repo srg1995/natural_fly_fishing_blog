@@ -2,8 +2,7 @@ import { createServerClient } from '@supabase/ssr';
 import { redirect } from '@sveltejs/kit';
 import { sequence, type Handle } from '@sveltejs/kit/hooks';
 import { PUBLIC_SUPABASE_PUBLISHABLE_KEY, PUBLIC_SUPABASE_URL } from '$app/env/public';
-
-const PUBLIC_ROUTES = ['/login'];
+import type { UserRole } from '#lib/entries.ts';
 
 const supabase: Handle = async ({ event, resolve }) => {
 	event.locals.supabase = createServerClient(PUBLIC_SUPABASE_URL, PUBLIC_SUPABASE_PUBLISHABLE_KEY, {
@@ -39,23 +38,35 @@ const supabase: Handle = async ({ event, resolve }) => {
 	});
 };
 
-// The whole blog is private: everything except PUBLIC_ROUTES requires a signed-in user.
+// Reading is open: which entries each visitor sees is decided by RLS (public / private / draft).
+// Only /admin needs a session here, and a superadmin one.
 const authGuard: Handle = async ({ event, resolve }) => {
 	const { session, user } = await event.locals.safeGetSession();
 	event.locals.session = session;
 	event.locals.user = user;
+	event.locals.role = null;
 
-	const { pathname } = event.url;
-	const isPublic = PUBLIC_ROUTES.some(
-		(route) => pathname === route || pathname.startsWith(`${route}/`)
-	);
-
-	if (!user && !isPublic) {
-		const redirectTo = event.url.pathname + event.url.search;
-		redirect(303, `/login?redirectTo=${encodeURIComponent(redirectTo)}`);
+	if (user) {
+		const { data: profile } = await event.locals.supabase
+			.from('profiles')
+			.select('role')
+			.eq('id', user.id)
+			.maybeSingle();
+		event.locals.role = (profile?.role as UserRole | undefined) ?? 'reader';
 	}
 
-	if (user && event.url.pathname === '/login') {
+	const { pathname } = event.url;
+
+	if (user && pathname === '/login') {
+		redirect(303, '/');
+	}
+
+	// Covers both page loads and form actions under /admin. RLS enforces the same rule in the database.
+	const isAdminRoute = pathname === '/admin' || pathname.startsWith('/admin/');
+	if (isAdminRoute && !user) {
+		redirect(303, `/login?redirectTo=${encodeURIComponent(pathname + event.url.search)}`);
+	}
+	if (isAdminRoute && event.locals.role !== 'superadmin') {
 		redirect(303, '/');
 	}
 

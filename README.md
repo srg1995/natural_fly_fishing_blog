@@ -1,7 +1,7 @@
 # Natural Fly Fishing
 
 Blog personal de pesca a mosca: montajes de moscas, entrenamientos, campeonatos y días de pesca libre.
-Uso limitado: solo pueden entrar usuarios creados a mano en Supabase.
+Cada entrada puede ser pública (la ve cualquiera) o privada (solo usuarios con sesión). Los usuarios se crean a mano en Supabase; no hay registro abierto.
 
 ## Stack
 
@@ -33,12 +33,15 @@ Cualquier cambio posterior del esquema va en una migración **nueva**: no edites
 El registro público está desactivado (Authentication → Sign In / Providers → Email → _Allow new users to sign up_ desactivado).
 
 1. Crea el usuario en Authentication → Users → **Add user**, con _Auto Confirm User_ marcado.
-2. Si va a poder gestionar entradas, dale permisos de administrador:
+   Un trigger le crea automáticamente un perfil con rol `reader`, que solo puede leer.
+2. Si va a poder gestionar entradas, hazlo `superadmin`:
 
    ```sql
-   insert into profiles (id, is_admin)
-   select id, true from auth.users where email = 'tu@email.com';
+   update profiles set role = 'superadmin'
+   where id = (select id from auth.users where email = 'tu@email.com');
    ```
+
+   El rol solo se puede cambiar desde SQL: `profiles` no tiene política de `update`.
 
 ### 4. Variables de entorno
 
@@ -71,16 +74,66 @@ Cada publicación es una fila de `entries` con los datos comunes. Según su `typ
 
 - `entries.body` guarda el contenido en Markdown.
 - `entries.status` es `draft` o `published`.
-- `profiles` marca qué usuarios son administradores (`is_admin`).
+- `entries.visibility` es `private` (por defecto) o `public`; solo cuenta cuando la entrada está publicada.
+- `profiles.role` es `reader` (lector) o `superadmin` (gestiona entradas).
+
+La descripción de los tipos y sus campos para la app está en [`src/lib/entries.ts`](src/lib/entries.ts). Si cambias una tabla de detalle, actualízala ahí también: de ella salen el formulario, la validación y la ficha de cada entrada.
 
 ### Seguridad (RLS)
 
-El blog es **privado**, y eso se aplica en dos capas:
+Quién ve cada entrada lo decide la base de datos:
 
-- **Base de datos:** solo los usuarios autenticados pueden leer, y solo las entradas `published` y sus detalles. Sin sesión (rol `anon`) no se lee nada, aunque se tenga la publishable key.
-- **App:** `hooks.server.ts` redirige a `/login` cualquier página si no hay sesión.
+| Entrada               | Sin sesión | Usuario (`reader`) | `superadmin` |
+| --------------------- | :--------: | :----------------: | :----------: |
+| Borrador (`draft`)    |     —      |         —          |      ✓       |
+| Publicada y `private` |     —      |         ✓          |      ✓       |
+| Publicada y `public`  |     ✓      |         ✓          |      ✓       |
 
-Los administradores (`es_admin()`) además ven los borradores y son los únicos que pueden crear, editar o borrar.
+- **Base de datos:** las políticas RLS aplican la tabla anterior a `entries`. Las tablas de detalle son visibles exactamente cuando lo es su entrada. Solo los `superadmin` (`es_admin()`) pueden crear, editar o borrar.
+- **App:** la lectura es abierta y cada visitante recibe lo que RLS le deja ver. Si alguien sin sesión abre una entrada privada, se le manda a `/login`. `/admin` exige sesión de `superadmin`.
+
+## Publicar entradas
+
+Con un usuario `superadmin` aparece el enlace **Admin** en la cabecera:
+
+- `/admin`: todas las entradas, borradores incluidos, con botones para publicar o pasar a borrador y para hacerlas públicas o privadas. Los mismos botones aparecen en la propia entrada.
+- `/admin/nueva`: crea una entrada de dos formas:
+  - **Formulario:** los campos de detalle cambian según el tipo elegido.
+  - **Archivo Markdown:** sube un `.md` y sus datos se cargan en el formulario para revisarlos antes de guardar.
+
+Formato del archivo: los campos van en un frontmatter YAML y el resto es el cuerpo. Si no hay `title`, se usa el primer `# Título`.
+
+```markdown
+---
+type: montaje_moscas # montaje_moscas | entrenamiento | campeonato | pesca_libre
+title: Pardón en CDC
+slug: pardon-en-cdc # opcional, se genera del título
+excerpt: Una seca sencilla para las tardes de mayo.
+status: draft # draft | published
+visibility: private # private (con sesión) | public (cualquiera)
+published_at: 2026-05-12 # opcional; si se publica sin fecha, se usa la actual
+fly_name: Pardón CDC
+fly_pattern: seca
+hook_size: 16
+target_species: trucha común
+materials: [hilo 8/0 marrón, CDC natural]
+---
+
+El cuerpo de la entrada en **Markdown**.
+```
+
+Los campos de detalle de cada tipo son las columnas de su tabla (ver [Modelo de datos](#modelo-de-datos)). La página de importación muestra la lista completa.
+
+## Fotos
+
+Cada entrada puede tener varias fotos. La primera es la portada, que también aparece en el listado.
+
+- **Dónde se suben:** en el formulario de nueva entrada, o desde la propia entrada (solo `superadmin`), donde también se borran.
+- **Cómo:** el navegador reduce cada foto a 2000 px como máximo, la convierte a JPEG (lo que de paso quita los datos EXIF y GPS) y la sube **directamente a Supabase Storage**, sin pasar por el servidor de la app: Vercel corta las peticiones de más de 4,5 MB.
+- **Dónde se guardan:** en el bucket privado `entry-images`, con la ruta `<entry_id>/<archivo>.jpg`. La tabla `entry_images` guarda el orden.
+- **Quién las ve:** las mismas personas que ven su entrada. La app sirve las fotos con URLs firmadas que caducan en una hora, y Storage solo las firma si la política RLS deja ver la entrada.
+
+En el plan gratuito de Supabase hay 1 GB de Storage y 5 GB de transferencia al mes. A unos 300–500 KB por foto, eso da para unas 2.000–3.000 fotos.
 
 ## Scripts
 
