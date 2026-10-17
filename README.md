@@ -75,9 +75,12 @@ Cada publicación es una fila de `entries` con los datos comunes. Según su `typ
 
 ### Seguridad (RLS)
 
-- Cualquiera puede leer las entradas `published` y sus detalles. Solo los administradores ven los borradores.
-- Solo los administradores (`es_admin()`) pueden crear, editar o borrar.
-- Además, la app exige iniciar sesión para ver cualquier página salvo `/login`.
+El blog es **privado**, y eso se aplica en dos capas:
+
+- **Base de datos:** solo los usuarios autenticados pueden leer, y solo las entradas `published` y sus detalles. Sin sesión (rol `anon`) no se lee nada, aunque se tenga la publishable key.
+- **App:** `hooks.server.ts` redirige a `/login` cualquier página si no hay sesión.
+
+Los administradores (`es_admin()`) además ven los borradores y son los únicos que pueden crear, editar o borrar.
 
 ## Scripts
 
