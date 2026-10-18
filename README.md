@@ -147,6 +147,25 @@ En el plan gratuito de Supabase hay 1 GB de Storage y 5 GB de transferencia al m
 | `bun run format`  | Formatea el código con Prettier          |
 | `bun run test`    | Tests con Vitest                         |
 
+## CI/CD
+
+**Comprobaciones:** [`.github/workflows/ci.yml`](.github/workflows/ci.yml) se ejecuta en cada PR y en cada push a `main`:
+
+| Trabajo      | Qué hace                                            |
+| ------------ | --------------------------------------------------- |
+| Tipos y lint | `bun run check` y `bun run lint`                    |
+| Tests        | `bun run test` (servidor y componentes en Chromium) |
+| Build        | `bun run build`                                     |
+
+Usan valores de ejemplo para las variables de Supabase, porque SvelteKit las exige al arrancar.
+
+**Despliegue:** lo hace la integración de Vercel con GitHub, con las variables reales configuradas en Vercel (Settings → Environment Variables):
+
+- Cada PR genera una **preview** y su estado aparece en la PR como check _Vercel_. Las previews están protegidas: solo se ven con sesión iniciada en Vercel.
+- Cada push a `main`, es decir, cada PR fusionada, despliega en **producción**: <https://natural-fly-fishing.vercel.app>.
+
+Para que solo llegue a producción código que pasa la CI, protege `main` en GitHub → Settings → Branches y exige _Tipos y lint_, _Tests_, _Build_ y _Vercel_ antes de fusionar.
+
 ## Recrear el scaffold
 
 El proyecto se generó con:

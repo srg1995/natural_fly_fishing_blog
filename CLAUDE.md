@@ -22,6 +22,8 @@ bunx vitest run --project server   # tests unitarios (los de navegador necesitan
 
 Antes de dar algo por terminado: `check`, `lint` y los tests de servidor en verde.
 
+Vite valida las variables de `src/env.ts` al arrancar, así que `test` y `build` fallan con `env_invalid` si no hay `.env`. En local existe. En CI se usan valores de ejemplo; los reales solo están en Vercel.
+
 ## Flujo de trabajo: una PR por petición
 
 - **Nunca** hagas commit ni push a `main`, ni fusiones PRs: el dueño del repo revisa y aprueba cada una.
@@ -36,6 +38,7 @@ Antes de dar algo por terminado: `check`, `lint` y los tests de servidor en verd
   | `refactor/…` | `refactor: …` | —               |
   | `chore/…`    | `chore: …`    | —               |
 
+- Cada PR ejecuta la CI ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)): tipos, lint, tests y build. Además, Vercel despliega una preview por su integración con Git (check _Vercel_). Producción se despliega sola al fusionar en `main`; no hay despliegue desde Actions. Después de abrirla, comprueba el resultado con `gh pr checks`. Si algo falla, arréglalo en la misma rama antes de darla por lista.
 - Descripción de la PR en español: **Qué cambia**, **Por qué**, **Migraciones SQL** a ejecutar (si las hay), **Cómo probarlo** y **Comprobaciones** (lo verificado y lo que no se ha podido verificar).
 
 ## SvelteKit 3: diferencias con la documentación antigua
