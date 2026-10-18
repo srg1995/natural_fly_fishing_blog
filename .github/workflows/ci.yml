@@ -1,0 +1,114 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+# A new push to the same PR/branch cancels the run that is still going
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    name: Tipos y lint
+    runs-on: ubuntu-latest
+    # Placeholders: SvelteKit validates the variables in src/env.ts when Vite starts.
+    # Job-level on purpose, so they never reach the deploy job (which uses the real ones from Vercel).
+    env:
+      PUBLIC_SUPABASE_URL: https://example.supabase.co
+      PUBLIC_SUPABASE_PUBLISHABLE_KEY: sb_publishable_ci_placeholder
+    steps:
+      - uses: actions/checkout@v7
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.1
+      - run: bun install --frozen-lockfile
+      - name: svelte-check
+        run: bun run check
+      - name: Prettier + ESLint
+        run: bun run lint
+
+  test:
+    name: Tests
+    runs-on: ubuntu-latest
+    env:
+      PUBLIC_SUPABASE_URL: https://example.supabase.co
+      PUBLIC_SUPABASE_PUBLISHABLE_KEY: sb_publishable_ci_placeholder
+    steps:
+      - uses: actions/checkout@v7
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.1
+      - run: bun install --frozen-lockfile
+      - name: Instalar Chromium para los tests de componentes
+        run: bunx playwright install --with-deps chromium
+      - name: Vitest (servidor + navegador)
+        run: bun run test
+
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    env:
+      PUBLIC_SUPABASE_URL: https://example.supabase.co
+      PUBLIC_SUPABASE_PUBLISHABLE_KEY: sb_publishable_ci_placeholder
+    steps:
+      - uses: actions/checkout@v7
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.1
+      - run: bun install --frozen-lockfile
+      - run: bun run build
+
+  deploy:
+    name: Despliegue (Vercel)
+    needs: [check, test, build]
+    runs-on: ubuntu-latest
+    # PRs from forks don't receive secrets
+    if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository
+    environment:
+      name: ${{ github.event_name == 'push' && 'production' || 'preview' }}
+      url: ${{ steps.deploy.outputs.url }}
+    env:
+      VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+      VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+      VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+      VERCEL_ENV: ${{ github.event_name == 'push' && 'production' || 'preview' }}
+      PROD_FLAG: ${{ github.event_name == 'push' && '--prod' || '' }}
+    steps:
+      - name: Comprobar secrets de Vercel
+        id: guard
+        run: |
+          if [ -z "$VERCEL_TOKEN" ] || [ -z "$VERCEL_ORG_ID" ] || [ -z "$VERCEL_PROJECT_ID" ]; then
+            echo "::warning title=Despliegue omitido::Faltan los secrets VERCEL_TOKEN, VERCEL_ORG_ID o VERCEL_PROJECT_ID. Ver la sección CI/CD del README."
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: actions/checkout@v7
+        if: steps.guard.outputs.skip != 'true'
+      - uses: oven-sh/setup-bun@v2
+        if: steps.guard.outputs.skip != 'true'
+        with:
+          bun-version: 1.3.1
+      - name: Instalar Vercel CLI
+        if: steps.guard.outputs.skip != 'true'
+        run: npm install --global vercel@64.5.0
+
+      # Pulls the project settings and its environment variables (the real Supabase ones) for this environment
+      - name: Descargar configuración de Vercel
+        if: steps.guard.outputs.skip != 'true'
+        run: vercel pull --yes --environment="$VERCEL_ENV" --token="$VERCEL_TOKEN"
+      - name: Build
+        if: steps.guard.outputs.skip != 'true'
+        run: vercel build $PROD_FLAG --token="$VERCEL_TOKEN"
+      - name: Desplegar
+        id: deploy
+        if: steps.guard.outputs.skip != 'true'
+        run: |
+          url=$(vercel deploy --prebuilt $PROD_FLAG --token="$VERCEL_TOKEN")
+          echo "url=$url" >> "$GITHUB_OUTPUT"
+          echo "### Desplegado en $VERCEL_ENV: $url" >> "$GITHUB_STEP_SUMMARY"

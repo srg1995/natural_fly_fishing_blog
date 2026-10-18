@@ -147,6 +147,38 @@ En el plan gratuito de Supabase hay 1 GB de Storage y 5 GB de transferencia al m
 | `bun run format`  | Formatea el código con Prettier          |
 | `bun run test`    | Tests con Vitest                         |
 
+## CI/CD
+
+[`.github/workflows/ci.yml`](.github/workflows/ci.yml) se ejecuta en cada PR y en cada push a `main`:
+
+| Trabajo      | Qué hace                                                                                                           |
+| ------------ | ------------------------------------------------------------------------------------------------------------------ |
+| Tipos y lint | `bun run check` y `bun run lint`                                                                                   |
+| Tests        | `bun run test` (servidor y componentes en Chromium)                                                                |
+| Build        | `bun run build`                                                                                                    |
+| Despliegue   | Solo si los tres anteriores pasan. Vercel con su CLI: **preview** en cada PR, **producción** al fusionar en `main` |
+
+Los tres primeros usan valores de ejemplo para las variables de Supabase, porque SvelteKit las exige al arrancar. El despliegue usa las reales, que se configuran en Vercel.
+
+### Configurar el despliegue (una vez)
+
+Mientras no estén los secrets, el despliegue se salta con un aviso y el resto de la CI funciona igual.
+
+1. Crea el proyecto en Vercel (Add New → Project → importa este repo) o, desde la carpeta del proyecto, `bunx vercel link`.
+2. En Vercel → Settings → **Environment Variables**, añade `PUBLIC_SUPABASE_URL` y `PUBLIC_SUPABASE_PUBLISHABLE_KEY` para **Production** y **Preview**.
+3. Crea un token en [vercel.com/account/tokens](https://vercel.com/account/tokens).
+4. Copia `orgId` y `projectId` de `.vercel/project.json`. Ese archivo lo crea `vercel link` y no se sube al repo.
+5. Guárdalos como secrets del repo:
+
+   ```sh
+   gh secret set VERCEL_TOKEN
+   gh secret set VERCEL_ORG_ID
+   gh secret set VERCEL_PROJECT_ID
+   ```
+
+6. **Evita despliegues dobles:** si el proyecto de Vercel está conectado a GitHub, desactiva sus despliegues automáticos (Settings → Git, o `"git": { "deploymentEnabled": false }` en un `vercel.json`). Desde ese momento solo despliega la CI, y solo cuando los checks pasan.
+7. Recomendado: en GitHub → Settings → Branches, protege `main` y exige que pasen _Tipos y lint_, _Tests_ y _Build_ antes de fusionar.
+
 ## Recrear el scaffold
 
 El proyecto se generó con:
