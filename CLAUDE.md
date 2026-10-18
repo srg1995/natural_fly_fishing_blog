@@ -71,7 +71,9 @@ Muchos ejemplos de internet son de SvelteKit 1/2 y aquí no funcionan:
 | `published` + `private` |     —      |    ✓     |      ✓       |
 | `published` + `public`  |     ✓      |    ✓     |      ✓       |
 
-- **RLS es la fuente de verdad.** La app no filtra por visibilidad: cada visitante recibe lo que RLS le deja leer. Si una consulta devuelve menos filas de las esperadas, piensa primero en RLS.
+- **RLS es la fuente de verdad.** Cada visitante recibe lo que RLS le deja leer. Si una consulta devuelve menos filas de las esperadas, piensa primero en RLS.
+- **Protección extra sin sesión:** la portada y `/entries/[slug]` también filtran `visibility = 'public'` cuando no hay sesión. Se añadió después de que una política mal configurada en producción mostrara entradas privadas a visitantes anónimos. No lo quites.
+- **Comprobar RLS de verdad:** consulta la API REST con la publishable key y sin sesión (`curl "$URL/rest/v1/entries?select=slug,status,visibility" -H "apikey: $KEY"`), o en SQL con `set role anon;`. Las políticas que están en producción pueden no coincidir con las migraciones si alguna no se aplicó o se tocó desde el panel.
 - **`es_admin()`** (SQL) devuelve `true` para el rol `superadmin`. Todas las políticas de escritura lo usan.
 - **Tablas de detalle y `entry_images`:** sus políticas de lectura usan `exists (select 1 from entries …)`. Esa subconsulta pasa por la RLS de `entries`, así que heredan su visibilidad.
 - **En la app,** `/admin` está protegido en los hooks, y eso cubre páginas y acciones. Una acción fuera de `/admin` que escriba datos (por ejemplo en `/entries/[slug]`) **debe comprobar `locals.role === 'superadmin'` por sí misma**.

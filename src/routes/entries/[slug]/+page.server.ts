@@ -16,11 +16,12 @@ export const load = async ({ params, locals, url }) => {
 		.maybeSingle<EntryWithDetails & { entry_images: EntryImage[] }>();
 
 	if (err) error(500, err.message);
-	if (!entry) {
-		// Private entries are invisible to anonymous visitors (RLS), so offer to sign in before a 404.
-		if (!locals.user) redirect(303, `/login?redirectTo=${encodeURIComponent(url.pathname)}`);
-		error(404, 'Entrada no encontrada');
+	// Private entries are invisible to anonymous visitors (RLS), so offer to sign in before a 404.
+	// The visibility check is defense in depth in case a policy is misconfigured again.
+	if (!locals.user && (!entry || entry.visibility !== 'public' || entry.status !== 'published')) {
+		redirect(303, `/login?redirectTo=${encodeURIComponent(url.pathname)}`);
 	}
+	if (!entry) error(404, 'Entrada no encontrada');
 
 	const urls = await signImagePaths(
 		locals.supabase,

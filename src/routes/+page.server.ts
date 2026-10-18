@@ -21,6 +21,9 @@ export const load = async ({ locals, url }) => {
 		)
 		.eq('status', 'published');
 	if (type) query = query.eq('type', type);
+	// Defense in depth: RLS already hides private entries from anonymous visitors,
+	// but a misconfigured policy once leaked them in production.
+	if (!locals.user) query = query.eq('visibility', 'public');
 
 	const { data: entries, error: err } = await query
 		.order('published_at', { ascending: false })
