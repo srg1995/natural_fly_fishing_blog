@@ -4,6 +4,7 @@ import { ENTRY_TYPES, type EntryWithDetails } from '#lib/entries.ts';
 import { IMAGES_BUCKET, type EntryImage } from '#lib/images.ts';
 import { changeEntryPublication } from '#lib/server/entry-status.ts';
 import { signImagePaths } from '#lib/server/images.ts';
+import { parseYouTubeId } from '#lib/youtube.ts';
 
 export const load = async ({ params, locals, url }) => {
 	const { data: entry, error: err } = await locals.supabase
@@ -43,6 +44,30 @@ export const load = async ({ params, locals, url }) => {
 
 export const actions = {
 	cambiarPublicacion: changeEntryPublication,
+
+	// Sets, replaces or (with an empty field) removes the entry's YouTube video.
+	guardarVideo: async ({ request, locals }) => {
+		if (locals.role !== 'superadmin') return fail(403, { message: 'No tienes permiso' });
+
+		const form = await request.formData();
+		const id = String(form.get('entryId') ?? '');
+		const video = String(form.get('video') ?? '').trim();
+		const youtubeId = video ? parseYouTubeId(video) : null;
+		if (video && !youtubeId) {
+			return fail(400, { videoError: 'No es un enlace de YouTube válido', video });
+		}
+
+		const { data, error: updateError } = await locals.supabase
+			.from('entries')
+			.update({ youtube_id: youtubeId })
+			.eq('id', id)
+			.select('id');
+		if (updateError) return fail(500, { videoError: updateError.message, video });
+		// RLS blocks without an error: it just updates no rows.
+		if (!data?.length) return fail(404, { videoError: 'No se pudo guardar el vídeo', video });
+
+		return { message: null };
+	},
 
 	borrarFoto: async ({ request, locals }) => {
 		if (locals.role !== 'superadmin') return fail(403, { message: 'No tienes permiso' });

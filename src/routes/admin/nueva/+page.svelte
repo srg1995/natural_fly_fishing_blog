@@ -36,6 +36,7 @@ excerpt: Una seca sencilla para las tardes de mayo.
 status: draft                  # draft | published
 visibility: private            # private (con sesión) | public (cualquiera)
 published_at: 2026-05-12       # opcional
+video: https://youtu.be/…      # opcional, enlace de YouTube
 fly_name: Pardón CDC
 fly_pattern: seca
 hook_size: 16
@@ -308,6 +309,18 @@ El cuerpo de la entrada en **Markdown**.`;
 					<label class="block sm:col-span-2">
 						<span class="text-sm font-medium text-stone-700">Entradilla</span>
 						<input name="excerpt" value={values.excerpt ?? ''} class={inputClass} />
+					</label>
+
+					<label class="block sm:col-span-2">
+						<span class="text-sm font-medium text-stone-700">Vídeo de YouTube</span>
+						<input
+							name="video"
+							type="url"
+							value={values.video ?? ''}
+							placeholder="https://www.youtube.com/watch?v=…"
+							class={inputClass}
+						/>
+						{@render fieldError('video')}
 					</label>
 				</div>
 

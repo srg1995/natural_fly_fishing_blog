@@ -104,6 +104,7 @@ export interface Entry {
 	title: string;
 	excerpt: string | null;
 	body: string | null;
+	youtube_id: string | null;
 	status: EntryStatus;
 	visibility: EntryVisibility;
 	published_at: string | null;
