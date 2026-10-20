@@ -1,6 +1,6 @@
 <script lang="ts">
-	import { enhance } from '$app/forms';
 	import { resolve } from '$app/paths';
+	import ConfirmDialog from '#lib/components/ConfirmDialog.svelte';
 	import ImageUploader from '#lib/components/ImageUploader.svelte';
 	import PublicationBadges from '#lib/components/PublicationBadges.svelte';
 	import PublicationControls from '#lib/components/PublicationControls.svelte';
@@ -18,6 +18,9 @@
 	const dayFormat = new Intl.DateTimeFormat('es-ES', { dateStyle: 'long', timeZone: 'UTC' });
 
 	let date = $derived(dateFormat.format(new Date(entry.published_at ?? entry.created_at)));
+
+	let photoToDelete: (typeof data.images)[number] | null = $state(null);
+	let deleteDialogOpen = $state(false);
 
 	let details = $derived(
 		typeInfo.fields
@@ -135,27 +138,41 @@
 									Portada
 								</span>
 							{/if}
-							<form
-								method="POST"
-								action="?/borrarFoto"
-								use:enhance={({ cancel }) => {
-									if (!confirm('¿Borrar esta foto?')) cancel();
+							<button
+								type="button"
+								onclick={() => {
+									photoToDelete = image;
+									deleteDialogOpen = true;
 								}}
-								class="absolute top-1 right-1"
+								aria-label="Borrar foto"
+								class="absolute top-1 right-1 rounded bg-white/90 px-1.5 py-0.5 text-xs font-medium text-red-700 hover:bg-white"
 							>
-								<input type="hidden" name="imageId" value={image.id} />
-								<button
-									type="submit"
-									aria-label="Borrar foto"
-									class="rounded bg-white/90 px-1.5 py-0.5 text-xs font-medium text-red-700 hover:bg-white"
-								>
-									Borrar
-								</button>
-							</form>
+								Borrar
+							</button>
 						</li>
 					{/each}
 				</ul>
 			{/if}
+
+			<ConfirmDialog
+				bind:open={deleteDialogOpen}
+				title="¿Borrar esta foto?"
+				confirmLabel="Borrar foto"
+				action="?/borrarFoto"
+				fields={{ imageId: photoToDelete?.id ?? '' }}
+			>
+				{#if photoToDelete}
+					<img
+						src={photoToDelete.url}
+						alt=""
+						class="mb-4 aspect-[3/2] w-full rounded-lg object-cover"
+					/>
+				{/if}
+				<p>Se borrará de la entrada y del almacenamiento. No se puede deshacer.</p>
+				{#if photoToDelete && photoToDelete.id === data.images[0]?.id && data.images.length > 1}
+					<p class="mt-2">Es la portada: la siguiente foto pasará a serlo.</p>
+				{/if}
+			</ConfirmDialog>
 
 			<ImageUploader entryId={entry.id} nextPosition={data.nextImagePosition} />
 		</section>
