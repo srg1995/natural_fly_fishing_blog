@@ -27,7 +27,8 @@ describe('parseEntryInput', () => {
 			status: 'draft',
 			visibility: 'private',
 			published_at: null,
-			body: '# Hola\n'
+			body: '# Hola\n',
+			youtube_id: null
 		});
 		expect(result.value.detailTable).toBe('fly_tyings');
 		expect(result.value.detail).toEqual({
@@ -75,6 +76,16 @@ describe('parseEntryInput', () => {
 		expect(result.ok).toBe(false);
 		if (result.ok) return;
 		expect(Object.keys(result.errors)).toEqual(['type', 'status', 'visibility']);
+	});
+
+	it('stores only the id of a YouTube link', () => {
+		const result = parseEntryInput({ ...flyTying, video: 'https://youtu.be/dQw4w9WgXcQ?si=x' });
+		expect(result.ok && result.value.entry.youtube_id).toBe('dQw4w9WgXcQ');
+	});
+
+	it('rejects video links that are not YouTube', () => {
+		const result = parseEntryInput({ ...flyTying, video: 'https://vimeo.com/123' });
+		expect(result).toEqual({ ok: false, errors: { video: 'No es un enlace de YouTube válido' } });
 	});
 
 	it('accepts public entries', () => {

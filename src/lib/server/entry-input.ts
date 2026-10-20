@@ -11,6 +11,7 @@ import {
 	type EntryType,
 	type EntryVisibility
 } from '#lib/entries.ts';
+import { parseYouTubeId } from '#lib/youtube.ts';
 
 export type RawInput = Record<string, unknown>;
 export type FieldErrors = Record<string, string>;
@@ -22,6 +23,7 @@ export interface ParsedEntry {
 		title: string;
 		excerpt: string | null;
 		body: string | null;
+		youtube_id: string | null;
 		status: EntryStatus;
 		visibility: EntryVisibility;
 		published_at: string | null;
@@ -113,6 +115,11 @@ export function parseEntryInput(
 	}
 	if (!publishedAt && status === 'published') publishedAt = new Date().toISOString();
 
+	// Input key is `video` (any YouTube link); only the id is stored.
+	const video = text(raw.video);
+	const youtubeId = video ? parseYouTubeId(video) : null;
+	if (video && !youtubeId) errors.video = 'No es un enlace de YouTube válido';
+
 	const detail: DetailRow = {};
 	if (isEntryType(type)) {
 		for (const field of ENTRY_TYPES[type].fields) {
@@ -131,6 +138,7 @@ export function parseEntryInput(
 				title: title!,
 				excerpt: text(raw.excerpt),
 				body: typeof raw.body === 'string' && raw.body.trim() ? raw.body : null,
+				youtube_id: youtubeId,
 				status: status as EntryStatus,
 				visibility: visibility as EntryVisibility,
 				published_at: publishedAt

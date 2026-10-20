@@ -1,17 +1,18 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
 	import { resolve } from '$app/paths';
+	import ImageCarousel from '#lib/components/ImageCarousel.svelte';
 	import ImageUploader from '#lib/components/ImageUploader.svelte';
 	import PublicationBadges from '#lib/components/PublicationBadges.svelte';
 	import PublicationControls from '#lib/components/PublicationControls.svelte';
+	import YouTubeVideo from '#lib/components/YouTubeVideo.svelte';
 	import { ENTRY_TYPES } from '#lib/entries.ts';
+	import { youTubeWatchUrl } from '#lib/youtube.ts';
 	import type { PageProps } from './$types';
 
 	let { data, form }: PageProps = $props();
 	let entry = $derived(data.entry);
 	let typeInfo = $derived(ENTRY_TYPES[entry.type]);
-	let cover = $derived(data.images[0]);
-	let gallery = $derived(data.images.slice(1));
 
 	const dateFormat = new Intl.DateTimeFormat('es-ES', { dateStyle: 'long' });
 	// Plain dates (YYYY-MM-DD) are formatted in UTC so they don't shift a day in negative offsets.
@@ -75,10 +76,16 @@
 		{/if}
 	</header>
 
-	{#if cover}
-		<a href={cover.url} target="_blank" rel="noopener" class="mt-8 block">
-			<img src={cover.url} alt={entry.title} class="max-h-[32rem] w-full rounded-xl object-cover" />
-		</a>
+	{#if data.images.length > 0}
+		<div class="mt-8">
+			<ImageCarousel images={data.images} alt={entry.title} />
+		</div>
+	{/if}
+
+	{#if entry.youtube_id}
+		<div class="mt-8">
+			<YouTubeVideo id={entry.youtube_id} title="Vídeo: {entry.title}" />
+		</div>
 	{/if}
 
 	{#if details.length > 0}
@@ -99,23 +106,6 @@
 			<!-- eslint-disable-next-line svelte/no-at-html-tags -- Markdown written by superadmins only (RLS) -->
 			{@html data.html}
 		</div>
-	{/if}
-
-	{#if gallery.length > 0}
-		<ul class="mt-10 grid grid-cols-2 gap-3 sm:grid-cols-3">
-			{#each gallery as image (image.id)}
-				<li>
-					<a href={image.url} target="_blank" rel="noopener">
-						<img
-							src={image.url}
-							alt=""
-							loading="lazy"
-							class="aspect-square w-full rounded-lg object-cover"
-						/>
-					</a>
-				</li>
-			{/each}
-		</ul>
 	{/if}
 
 	{#if data.isSuperadmin}
@@ -158,6 +148,34 @@
 			{/if}
 
 			<ImageUploader entryId={entry.id} nextPosition={data.nextImagePosition} />
+		</section>
+
+		<section class="mt-12 space-y-4 border-t border-stone-200 pt-8">
+			<h2 class="text-lg font-semibold text-stone-900">Vídeo</h2>
+			<form method="POST" action="?/guardarVideo" use:enhance class="space-y-2">
+				<input type="hidden" name="entryId" value={entry.id} />
+				<label class="block">
+					<span class="text-sm text-stone-500">
+						Enlace de YouTube. Déjalo vacío para quitar el vídeo.
+					</span>
+					<input
+						name="video"
+						type="url"
+						value={form?.video ?? (entry.youtube_id ? youTubeWatchUrl(entry.youtube_id) : '')}
+						placeholder="https://www.youtube.com/watch?v=…"
+						class="mt-1 block w-full rounded-md border-stone-300 text-sm focus:border-stone-500 focus:ring-stone-500"
+					/>
+				</label>
+				{#if form?.videoError}
+					<p class="text-sm text-red-700" role="alert">{form.videoError}</p>
+				{/if}
+				<button
+					type="submit"
+					class="rounded-md bg-stone-900 px-4 py-2 text-sm font-medium text-white hover:bg-stone-700"
+				>
+					Guardar vídeo
+				</button>
+			</form>
 		</section>
 	{/if}
 </article>

@@ -73,6 +73,7 @@ Cada publicación es una fila de `entries` con los datos comunes. Según su `typ
 | `pesca_libre`    | `free_fishing_days` | fecha, lugar, tipo de agua, técnica, especies, capturas |
 
 - `entries.body` guarda el contenido en Markdown.
+- `entries.youtube_id` guarda el identificador de un vídeo de YouTube opcional (ver [Vídeo](#vídeo)).
 - `entries.status` es `draft` o `published`.
 - `entries.visibility` es `private` (por defecto) o `public`; solo cuenta cuando la entrada está publicada.
 - `profiles.role` es `reader` (lector) o `superadmin` (gestiona entradas).
@@ -112,6 +113,7 @@ excerpt: Una seca sencilla para las tardes de mayo.
 status: draft # draft | published
 visibility: private # private (con sesión) | public (cualquiera)
 published_at: 2026-05-12 # opcional; si se publica sin fecha, se usa la actual
+video: https://youtu.be/dQw4w9WgXcQ # opcional; cualquier enlace de YouTube
 fly_name: Pardón CDC
 fly_pattern: seca
 hook_size: 16
@@ -134,6 +136,14 @@ Cada entrada puede tener varias fotos. La primera es la portada, que también ap
 - **Quién las ve:** las mismas personas que ven su entrada. La app sirve las fotos con URLs firmadas que caducan en una hora, y Storage solo las firma si la política RLS deja ver la entrada.
 
 En el plan gratuito de Supabase hay 1 GB de Storage y 5 GB de transferencia al mes. A unos 300–500 KB por foto, eso da para unas 2.000–3.000 fotos.
+
+En la entrada, una sola foto se muestra tal cual y varias forman un carrusel (deslizable en el móvil, con flechas y teclado en escritorio).
+
+## Vídeo
+
+Cada entrada puede llevar un vídeo de YouTube, que se muestra debajo de las fotos. Se indica en el formulario de nueva entrada, en el campo `video` del frontmatter o desde la propia entrada (solo `superadmin`), donde también se cambia o se quita.
+
+Vale cualquier enlace (`youtube.com/watch?v=…`, `youtu.be/…`, `/shorts/…`, `/embed/…`); en `entries.youtube_id` solo se guarda el identificador del vídeo. El reproductor usa `youtube-nocookie.com`, que no pone cookies hasta que se pulsa play. Para que el vídeo no sea público en YouTube, súbelo como **oculto** (no como privado, que no se puede insertar).
 
 ## Scripts
 
